@@ -68,6 +68,7 @@ async fn fallback() -> impl axum::response::IntoResponse {
 pub fn get_router(state: Arc<RustusState>) -> Router {
     let config = state.config.clone();
     axum::Router::new()
+        .route("/", axum::routing::get(root))
         .route("/", axum::routing::post(routes::create::handler))
         .route("/:upload_id", axum::routing::patch(routes::upload::handler))
         .route("/:upload_id", axum::routing::get(routes::get_file::handler))
@@ -90,6 +91,10 @@ pub fn get_router(state: Arc<RustusState>) -> Router {
             add_tus_header,
         ))
         .route_layer(DefaultBodyLimit::max(config.max_body_size))
+}
+
+async fn root() -> impl axum::response::IntoResponse {
+    (axum::http::StatusCode::OK, ":)")
 }
 
 /// Start the server.
