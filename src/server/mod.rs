@@ -5,7 +5,8 @@ use std::{
 };
 
 use crate::{
-    config::Config, errors::RustusResult, state::RustusState, utils::headers::HeaderMapExt,
+    config::Config, errors::RustusResult, extensions::TusExtensions, state::RustusState,
+    utils::headers::HeaderMapExt,
 };
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, Request, State},
@@ -50,6 +51,27 @@ async fn add_tus_header(
         resp.headers_mut().insert("Tus-Max-Size", max_size);
     }
 
+    let extensions = state
+        .tus_extensions
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>()
+        .join(",");
+
+    match extensions.parse() {
+        Ok(val) => {
+            resp.headers_mut().insert("Tus-Extension", val);
+        }
+        Err(_) => (),
+    };
+
+    if state.tus_extensions.contains(&TusExtensions::Checksum) {
+        resp.headers_mut().insert(
+            "Tus-checksum-algorithm",
+            HeaderValue::from_static("md5,sha1,sha256,sha512"),
+        );
+    }
+
     resp
 }
 
@@ -68,7 +90,6 @@ async fn fallback() -> impl axum::response::IntoResponse {
 pub fn get_router(state: Arc<RustusState>) -> Router {
     let config = state.config.clone();
     axum::Router::new()
-        .route("/", axum::routing::get(root))
         .route("/", axum::routing::post(routes::create::handler))
         .route("/:upload_id", axum::routing::patch(routes::upload::handler))
         .route("/:upload_id", axum::routing::get(routes::get_file::handler))
@@ -84,17 +105,12 @@ pub fn get_router(state: Arc<RustusState>) -> Router {
             config.cors.clone(),
             &config.notification_config.hooks_http_proxy_headers,
         ))
-        .route("/", axum::routing::options(routes::info::handler))
         .with_state(state)
         .route_layer(axum::middleware::from_fn_with_state(
             config.clone(),
             add_tus_header,
         ))
         .route_layer(DefaultBodyLimit::max(config.max_body_size))
-}
-
-async fn root() -> impl axum::response::IntoResponse {
-    (axum::http::StatusCode::OK, ":)")
 }
 
 /// Start the server.

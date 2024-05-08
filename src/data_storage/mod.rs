@@ -6,7 +6,9 @@ use std::{
 
 use crate::{config::Config, errors::RustusResult, from_str, utils::result::MonadLogger};
 
-use self::impls::{file_storage::FileStorage, s3_hybrid::S3HybridStorage, null_storage::NullStorage};
+use self::impls::{
+    file_storage::FileStorage, null_storage::NullStorage, s3_hybrid::S3HybridStorage,
+};
 
 pub mod base;
 pub mod impls;
